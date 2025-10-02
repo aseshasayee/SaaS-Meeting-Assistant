@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Assistant API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .endpoint {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Meeting Assistant API</h1>
+    <p>Welcome to the Meeting Assistant API. This API allows you to upload meeting recordings, get transcriptions, and extract tasks.</p>
+    
+    <h2>Available Endpoints:</h2>
+    
+    <div class="endpoint">
+        <h3>Upload Meeting</h3>
+        <p><strong>Endpoint:</strong> POST /api/meetings/upload</p>
+        <p><strong>Description:</strong> Upload an audio file to transcribe and extract tasks.</p>
+        <p><strong>Request:</strong> Form data with 'meeting' file field</p>
+        <p><strong>Response:</strong></p>
+        <pre>
+{
+  "message": "File uploaded, transcribed, and tasks extracted successfully",
+  "file": "filename",
+  "path": "/path/to/file",
+  "transcript": "Transcribed and corrected text",
+  "rawTranscript": "Raw transcription from Whisper",
+  "tasks": [
+    {
+      "name": "employee_name",
+      "task": "task_description",
+      "due": "YYYY-MM-DD"
+    }
+  ],
+  "transcriptFile": "/path/to/transcript.txt"
+}
+        </pre>
+    </div>
+    
+    <h2>Testing:</h2>
+    <p>You can use the <a href="/test-upload.html">test upload form</a> to test the API.</p>
+</body>
+</html>

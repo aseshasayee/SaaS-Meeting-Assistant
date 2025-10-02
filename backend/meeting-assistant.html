@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Assistant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7f9;
+            color: #333;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .upload-form {
+            margin-bottom: 30px;
+        }
+        
+        .upload-form input[type="file"] {
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .transcript {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 20px;
+            white-space: pre-line;
+        }
+        
+        .tasks-container {
+            margin-top: 20px;
+        }
+        
+        .task-item {
+            background-color: #f9fcff;
+            border-left: 4px solid #27ae60;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .task-item h3 {
+            margin-top: 0;
+            color: #27ae60;
+        }
+        
+        .task-item p {
+            margin: 5px 0;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading:after {
+            content: " ";
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            margin: 8px;
+            border-radius: 50%;
+            border: 6px solid #3498db;
+            border-color: #3498db transparent #3498db transparent;
+            animation: loading 1.2s linear infinite;
+        }
+        
+        @keyframes loading {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .error {
+            background-color: #ffecec;
+            color: #ff5252;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #ff5252;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .database-status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f0f7ff;
+            border-left: 4px solid #3498db;
+        }
+        
+        .success {
+            background-color: #e7f7e7;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .warning {
+            background-color: #fff7e7;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .task-item.unassigned {
+            background-color: #fff7e7;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .task-item.error-item {
+            background-color: #ffecec;
+            border-left: 4px solid #ff5252;
+        }
+        
+        .badge {
+            display: inline-block;
+            background-color: #f39c12;
+            color: white;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Meeting Assistant</h1>
+        
+        <div class="upload-form">
+            <h2>Upload Meeting Recording</h2>
+            <form id="uploadForm">
+                <input type="file" id="meetingFile" name="meeting" accept="audio/*" required>
+                <button type="submit">Upload & Process</button>
+            </form>
+        </div>
+        
+        <div id="loading" class="loading"></div>
+        
+        <div id="error" class="error"></div>
+        
+        <div id="results" class="results">
+            <h2>Meeting Transcript</h2>
+            <div id="transcript" class="transcript"></div>
+            
+            <div class="tasks-container">
+                <h2>Extracted Tasks</h2>
+                <div id="tasks"></div>
+                <div id="database-status" class="database-status"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('meetingFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('Please select a file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('meeting', file);
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/meetings/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                showError('Error: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const transcriptDiv = document.getElementById('transcript');
+            const tasksDiv = document.getElementById('tasks');
+            const dbStatusDiv = document.getElementById('database-status');
+            
+            // Display transcript
+            transcriptDiv.textContent = data.transcript || 'No transcript available';
+            
+            // Display tasks
+            tasksDiv.innerHTML = '';
+            
+            if (data.tasks && data.tasks.length > 0) {
+                data.tasks.forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.className = 'task-item';
+                    
+                    // If we have database result, use those names
+                    const name = task.employee_name || task.name;
+                    const status = task.status || 'assigned';
+                    
+                    const taskName = document.createElement('h3');
+                    taskName.textContent = name;
+                    
+                    // Add visual indicator for unassigned tasks
+                    if (status === 'unassigned' || name.includes('not found')) {
+                        taskItem.classList.add('unassigned');
+                        taskName.innerHTML = name + ' <span class="badge">Not in database</span>';
+                    } else if (status === 'error') {
+                        taskItem.classList.add('error-item');
+                        taskName.innerHTML = name + ' <span class="badge">Error</span>';
+                    }
+                    
+                    taskItem.appendChild(taskName);
+                    
+                    const taskDesc = document.createElement('p');
+                    taskDesc.innerHTML = '<strong>Task:</strong> ' + (task.task_description || task.task);
+                    taskItem.appendChild(taskDesc);
+                    
+                    const taskDue = document.createElement('p');
+                    taskDue.innerHTML = '<strong>Due:</strong> ' + formatDate(task.due_date || task.due);
+                    taskItem.appendChild(taskDue);
+                    
+                    tasksDiv.appendChild(taskItem);
+                });
+            } else {
+                tasksDiv.innerHTML = '<p>No tasks were extracted from this meeting.</p>';
+            }
+            
+            // Display database status
+                if (data.dbResult) {
+                    const hasUnassigned = data.dbResult.unassignedCount && data.dbResult.unassignedCount > 0;
+                    
+                    let statusHtml = `
+                        <h3>Database Status</h3>
+                        <p><strong>Meeting ID:</strong> ${data.dbResult.meeting.id}</p>
+                        <p><strong>Total Tasks:</strong> ${data.dbResult.tasks.length}</p>
+                    `;
+                    
+                    if (hasUnassigned) {
+                        statusHtml += `
+                            <p><strong>Assigned Tasks:</strong> ${data.dbResult.assignedCount}</p>
+                            <p><strong>Unassigned Tasks:</strong> ${data.dbResult.unassignedCount} (employee not found in database)</p>
+                            <p class="warning">⚠️ Some tasks could not be assigned to employees</p>
+                        `;
+                        dbStatusDiv.classList.add('warning');
+                    } else {
+                        statusHtml += `<p class="success">✅ All tasks were successfully assigned and saved</p>`;
+                        dbStatusDiv.classList.add('success');
+                    }
+                    
+                    dbStatusDiv.innerHTML = statusHtml;
+                } else if (data.dbError) {
+                    dbStatusDiv.innerHTML = `
+                        <h3>Database Status</h3>
+                        <p class="warning">⚠️ Failed to save to database: ${data.dbError}</p>
+                        <p>Meeting and tasks were processed but not saved.</p>
+                    `;
+                    dbStatusDiv.classList.add('warning');
+                } else {
+                    dbStatusDiv.innerHTML = '';
+                    dbStatusDiv.className = 'database-status';
+                }            resultsDiv.style.display = 'block';
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'No date specified';
+            
+            const date = new Date(dateString);
+            if (isNaN(date)) return dateString;
+            
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
