@@ -2,37 +2,41 @@ import sys
 import os
 import subprocess
 import logging
+import json
 
-# Set up logging to file instead of stdout
-log_file = os.path.join(os.path.dirname(__file__), '..', 'transcribe_debug.log')
-logging.basicConfig(filename=log_file, level=logging.INFO, 
+# Paths
+BASE_DIR = os.path.dirname(__file__)
+TRANSCRIPTS_DIR = os.path.join(BASE_DIR, '..', 'transcripts')
+os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+
+# Set up logging
+log_file = os.path.join(BASE_DIR, '..', 'transcribe_debug.log')
+logging.basicConfig(filename=log_file, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Ensure audio file is provided
 if len(sys.argv) < 2:
     logging.error("No audio file provided")
-    print("Usage: python transcribe.py <audio_file>")
+    print(json.dumps({"error": "No audio file provided"}))
     sys.exit(1)
 
 AUDIO_FILE = sys.argv[1]
 logging.info(f"Attempting to transcribe file: {AUDIO_FILE}")
 
-# For testing purposes, let's return dummy text if whisper isn't installed
 try:
-    # First, check if the file exists
+    # Check if audio file exists
     if not os.path.exists(AUDIO_FILE):
         logging.error(f"File {AUDIO_FILE} does not exist")
-        print(f"Error: File does not exist")
+        print(json.dumps({"error": f"File {AUDIO_FILE} does not exist"}))
         sys.exit(1)
-        
-    logging.info("File exists, attempting to run whisper...")
-    
-    # Try different possible ways whisper might be installed
+
+    # Whisper commands
     commands = [
-        ["whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt"],
-        ["openai-whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt"],
-        ["python", "-m", "whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt"]
+        ["whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt", "--output_dir", TRANSCRIPTS_DIR],
+        ["openai-whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt", "--output_dir", TRANSCRIPTS_DIR],
+        ["python", "-m", "whisper", AUDIO_FILE, "--model", "base", "--language", "en", "--output_format", "txt", "--output_dir", TRANSCRIPTS_DIR]
     ]
-    
+
     success = False
     for cmd in commands:
         try:
@@ -41,54 +45,41 @@ try:
             if result.returncode == 0:
                 success = True
                 break
-            logging.warning(f"Command failed with: {result.stderr}")
+            logging.warning(f"Command failed: {result.stderr.strip()}")
         except Exception as e:
-            logging.error(f"Error with command {cmd[0]}: {e}")
-    
-    if success:
-        # Whisper outputs a .txt file with the same name as the audio file
-        # Check both the expected location (in uploads folder) and the root directory
-        expected_txt_file = os.path.splitext(AUDIO_FILE)[0] + ".txt"
-        root_txt_file = os.path.join(os.path.dirname(__file__), '..', os.path.basename(os.path.splitext(AUDIO_FILE)[0]) + ".txt")
-        
-        logging.info(f"Checking for transcript files in: \n1. {expected_txt_file}\n2. {root_txt_file}")
-        
-        # First check if the root file exists (this is where Whisper usually puts it)
-        if os.path.exists(root_txt_file):
-            with open(root_txt_file, "r", encoding="utf-8") as f:
-                transcript = f.read()
-                print(transcript)
-                logging.info(f"Successfully read transcript from {root_txt_file}")
-                
-                # Copy the transcript to the expected location for consistency
-                os.makedirs(os.path.dirname(expected_txt_file), exist_ok=True)
-                with open(expected_txt_file, "w", encoding="utf-8") as dest_f:
-                    dest_f.write(transcript)
-                logging.info(f"Copied transcript to expected location: {expected_txt_file}")
-                
-                # Delete the root file to avoid confusion
-                try:
-                    os.remove(root_txt_file)
-                    logging.info(f"Deleted duplicate transcript file: {root_txt_file}")
-                except Exception as e:
-                    logging.warning(f"Could not delete duplicate file {root_txt_file}: {e}")
-        # Then check if the expected file exists
-        elif os.path.exists(expected_txt_file):
-            with open(expected_txt_file, "r", encoding="utf-8") as f:
-                transcript = f.read()
-                print(transcript)
-                logging.info(f"Successfully read transcript from {expected_txt_file}")
-        else:
-            logging.warning("No transcript file found in either location. Using fallback text.")
-            logging.warning(f"Looked in: \n1. {expected_txt_file}\n2. {root_txt_file}")
-            # Only print the actual transcript text, no debug info
-            print("This is a sample transcript for testing. In the meeting, Seshasayee was asked to prepare the quarterly report by October 15th. Nisha needs to review the marketing materials by next Friday.")
-    else:
-        logging.error("All whisper commands failed. Using fallback text for testing.")
-        # Only print the actual transcript text, no debug info
-        print("This is a sample transcript for testing. In the meeting, Seshasayee was asked to prepare the quarterly report by October 15th. Nisha needs to review the marketing materials by next Friday.")
-        
+            logging.error(f"Error running command {cmd[0]}: {e}")
+
+    if not success:
+        logging.error("All whisper commands failed")
+        print(json.dumps({"error": "Transcription failed"}))
+        sys.exit(1)
+
+    # Construct transcript file path
+    base_name = os.path.splitext(os.path.basename(AUDIO_FILE))[0]
+    transcript_file = os.path.join(TRANSCRIPTS_DIR, f"{base_name}.txt")
+
+    if not os.path.exists(transcript_file):
+        logging.error(f"Transcript file {transcript_file} not found after whisper run")
+        print(json.dumps({"error": f"Transcript file {transcript_file} not found"}))
+        sys.exit(1)
+
+    # Read transcript
+    with open(transcript_file, "r", encoding="utf-8") as f:
+        transcript = f.read().strip()
+
+    if not transcript:
+        logging.error(f"Transcript file {transcript_file} is empty")
+        print(json.dumps({"error": f"Transcript file {transcript_file} is empty"}))
+        sys.exit(1)
+
+    # Output JSON
+    output_json = {
+        "transcript": transcript,
+        "filename": os.path.basename(transcript_file)
+    }
+    print(json.dumps(output_json))
+    logging.info(f"Successfully transcribed {AUDIO_FILE} to {transcript_file}")
+
 except Exception as e:
-    logging.error(f"Error in transcription process: {e}")
-    # Only print the actual transcript text, no debug info
-    print("This is a sample transcript for testing. In the meeting, Seshasayee was asked to prepare the quarterly report by October 15th. Nisha needs to review the marketing materials by next Friday.")
+    logging.error(f"Unexpected error: {e}")
+    print(json.dumps({"error": f"Unexpected error: {e}"}))
