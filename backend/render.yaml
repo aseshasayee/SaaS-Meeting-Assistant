@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: meeting-assistant-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    branch: master
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: GEMINI_API_KEY
+        fromGroup: secrets
+      - key: SUPABASE_URL
+        fromGroup: secrets
+      - key: SUPABASE_ANON_KEY
+        fromGroup: secrets
+      - key: EMAIL_USER
+        fromGroup: secrets
+      - key: EMAIL_PASS
+        fromGroup: secrets
+      - key: GMAIL_CLIENT_ID
+        fromGroup: secrets
+      - key: GMAIL_CLIENT_SECRET
+        fromGroup: secrets
+      - key: GMAIL_REFRESH_TOKEN
+        fromGroup: secrets
+    healthCheckPath: /health

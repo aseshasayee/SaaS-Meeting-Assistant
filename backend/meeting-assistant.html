@@ -184,12 +184,15 @@
         <div id="error" class="error"></div>
         
         <div id="results" class="results">
+            <h2>Meeting Summary</h2>
+            <div id="summary" class="transcript"></div>
             <h2>Meeting Transcript</h2>
             <div id="transcript" class="transcript"></div>
-            
             <div class="tasks-container">
                 <h2>Extracted Tasks</h2>
                 <div id="tasks"></div>
+                <div id="emails-section"></div>
+                <div id="errors-section"></div>
                 <div id="database-status" class="database-status"></div>
             </div>
         </div>
@@ -236,53 +239,81 @@
         
         function displayResults(data) {
             const resultsDiv = document.getElementById('results');
+            const summaryDiv = document.getElementById('summary');
             const transcriptDiv = document.getElementById('transcript');
             const tasksDiv = document.getElementById('tasks');
+            const emailsDiv = document.getElementById('emails-section');
+            const errorsDiv = document.getElementById('errors-section');
             const dbStatusDiv = document.getElementById('database-status');
-            
+
+            // Display summary
+            let summary =
+                data.summary ||
+                (data.crewResult &&
+                    (data.crewResult.meeting_summary?.summary ||
+                     data.crewResult.meeting_summary ||
+                     data.crewResult.summary)) ||
+                (data.supabaseResult && data.supabaseResult[0]?.Summary) ||
+                'No summary available';
+            summaryDiv.textContent = summary;
+
             // Display transcript
             transcriptDiv.textContent = data.transcript || 'No transcript available';
-            
+
             // Display tasks
             tasksDiv.innerHTML = '';
-            
             if (data.tasks && data.tasks.length > 0) {
                 data.tasks.forEach(task => {
                     const taskItem = document.createElement('div');
                     taskItem.className = 'task-item';
-                    
-                    // If we have database result, use those names
                     const name = task.employee_name || task.name;
                     const status = task.status || 'assigned';
-                    
                     const taskName = document.createElement('h3');
                     taskName.textContent = name;
-                    
-                    // Add visual indicator for unassigned tasks
-                    if (status === 'unassigned' || name.includes('not found')) {
+                    if (status === 'unassigned' || (name && name.includes('not found'))) {
                         taskItem.classList.add('unassigned');
                         taskName.innerHTML = name + ' <span class="badge">Not in database</span>';
                     } else if (status === 'error') {
                         taskItem.classList.add('error-item');
                         taskName.innerHTML = name + ' <span class="badge">Error</span>';
                     }
-                    
                     taskItem.appendChild(taskName);
-                    
                     const taskDesc = document.createElement('p');
                     taskDesc.innerHTML = '<strong>Task:</strong> ' + (task.task_description || task.task);
                     taskItem.appendChild(taskDesc);
-                    
                     const taskDue = document.createElement('p');
                     taskDue.innerHTML = '<strong>Due:</strong> ' + formatDate(task.due_date || task.due);
                     taskItem.appendChild(taskDue);
-                    
                     tasksDiv.appendChild(taskItem);
                 });
             } else {
                 tasksDiv.innerHTML = '<p>No tasks were extracted from this meeting.</p>';
             }
-            
+
+            // Display emails sent
+            emailsDiv.innerHTML = '';
+            let emails = (data.emails || (data.crewResult && data.crewResult.emails)) || [];
+            if (emails.length > 0) {
+                let html = '<h2>Emails Sent</h2><ul>';
+                emails.forEach(email => {
+                    html += `<li><strong>To:</strong> ${email.employee_email} <strong>Subject:</strong> ${email.subject}<br><pre>${email.body}</pre></li>`;
+                });
+                html += '</ul>';
+                emailsDiv.innerHTML = html;
+            }
+
+            // Display errors
+            errorsDiv.innerHTML = '';
+            let errors = (data.errors || (data.crewResult && data.crewResult.errors)) || [];
+            if (errors.length > 0) {
+                let html = '<h2>Errors</h2><ul>';
+                errors.forEach(err => {
+                    html += `<li>${typeof err === 'string' ? err : JSON.stringify(err)}</li>`;
+                });
+                html += '</ul>';
+                errorsDiv.innerHTML = html;
+            }
+
             // Display database status
                 if (data.dbResult) {
                     const hasUnassigned = data.dbResult.unassignedCount && data.dbResult.unassignedCount > 0;

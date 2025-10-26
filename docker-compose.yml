@@ -1,0 +1,15 @@
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: meeting-assistant-backend
+    ports:
+      - "5000:5000"  # Node.js server
+      - "5001:5001"  # Python AI agent
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/transcripts:/app/transcripts
+    restart: unless-stopped

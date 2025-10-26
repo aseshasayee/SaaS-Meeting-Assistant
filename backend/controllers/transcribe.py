@@ -73,11 +73,7 @@ try:
         sys.exit(1)
 
     # Output JSON
-    output_json = {
-        "transcript": transcript,
-        "filename": os.path.basename(transcript_file)
-    }
-    print(json.dumps(output_json))
+    print(transcript)
     logging.info(f"Successfully transcribed {AUDIO_FILE} to {transcript_file}")
 
 except Exception as e:

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Polling Setup - SaaS Meeting Assistant</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4A90E2;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .step {
+            margin: 30px 0;
+            padding: 25px;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+            background: #f8f9fa;
+            position: relative;
+        }
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: #4A90E2;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #357ABD, #2E5A87);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+        .success:hover {
+            background: linear-gradient(135deg, #229954, #1e8449);
+        }
+        .warning {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+        .warning:hover {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+        }
+        .danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        .danger:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #e2f3ff;
+            border: 1px solid #b8daff;
+            color: #004085;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-pending { background: #ffc107; }
+        .status-success { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-active { background: #17a2b8; animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .auth-url {
+            background: #f8f9fa;
+            border: 1px dashed #4A90E2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            word-break: break-all;
+        }
+        .progress {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4A90E2, #357ABD);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4A90E2;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feature h4 {
+            margin: 0 0 8px 0;
+            color: #2c3e50;
+        }
+        .feature p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .polling-status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .polling-status.inactive {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        .updates-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        .update-item {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 3px solid #4A90E2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Gmail Polling Setup</h1>
+        <p class="subtitle">Configure automatic email reply tracking with Gmail polling for your SaaS Meeting Assistant</p>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <!-- Features Overview -->
+        <div class="step">
+            <div class="step-number">✨</div>
+            <h3>What You'll Get</h3>
+            <div class="feature-list">
+                <div class="feature">
+                    <h4>🔄 Automatic Polling</h4>
+                    <p>Checks Gmail every 2 minutes for new replies</p>
+                </div>
+                <div class="feature">
+                    <h4>🎯 Smart Detection</h4>
+                    <p>Recognizes completion keywords: "completed", "done", "finished"</p>
+                </div>
+                <div class="feature">
+                    <h4>📊 Real-time Updates</h4>
+                    <p>Automatically updates task status in database</p>
+                </div>
+                <div class="feature">
+                    <h4>🐳 Docker Ready</h4>
+                    <p>Fully integrated with your Docker environment</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Get Authorization URL -->
+        <div class="step">
+            <div class="step-number">1</div>
+            <h3><span class="status-indicator status-pending" id="step1Status"></span>Get Gmail Authorization URL</h3>
+            <p>First, we need to get the authorization URL to connect your Gmail account.</p>
+            <button onclick="getAuthUrl()" id="authBtn">Get Authorization URL</button>
+            <div id="authResult"></div>
+        </div>
+
+        <!-- Step 2: Authorize Access -->
+        <div class="step">
+            <div class="step-number">2</div>
+            <h3><span class="status-indicator status-pending" id="step2Status"></span>Authorize Gmail Access</h3>
+            <p>Click the authorization URL above, grant permissions, and you'll be redirected back with tokens.</p>
+            <p><strong>Note:</strong> The authorization will open in a new tab and redirect back to this server.</p>
+        </div>
+
+        <!-- Step 3: Start Polling -->
+        <div class="step">
+            <div class="step-number">3</div>
+            <h3><span class="status-indicator status-pending" id="step3Status"></span>Start Gmail Polling</h3>
+            <p>Once authorized, start the automatic email polling service.</p>
+            <div>
+                <label for="pollingInterval">Polling Interval (minutes):</label>
+                <select id="pollingInterval">
+                    <option value="1">1 minute</option>
+                    <option value="2" selected>2 minutes</option>
+                    <option value="5">5 minutes</option>
+                    <option value="10">10 minutes</option>
+                </select>
+            </div>
+            <br>
+            <button onclick="startPolling()" id="startBtn" disabled>Start Polling</button>
+            <button onclick="stopPolling()" id="stopBtn" class="warning" disabled>Stop Polling</button>
+            <button onclick="checkNow()" id="checkBtn" class="success" disabled>Check Now</button>
+            <div id="pollingResult"></div>
+        </div>
+
+        <!-- Step 4: Monitor Activity -->
+        <div class="step">
+            <div class="step-number">4</div>
+            <h3><span class="status-indicator status-pending" id="step4Status"></span>Monitor Email Activity</h3>
+            <p>View recent email replies and task updates.</p>
+            <button onclick="getPollingStatus()" class="success">Check Status</button>
+            <button onclick="getRecentUpdates()" class="success">View Recent Updates</button>
+            <div id="monitorResult"></div>
+        </div>
+
+        <!-- Management Controls -->
+        <div class="step">
+            <div class="step-number">🔧</div>
+            <h3>Management & Testing</h3>
+            <p>Use these controls to manage and test your Gmail polling integration.</p>
+            <button onclick="testWithExistingTasks()" class="warning">Test with Existing Tasks</button>
+            <button onclick="resetSetup()" class="danger">Reset Setup</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let isAuthorized = false;
+        let pollingActive = false;
+
+        function updateProgress() {
+            const progress = (currentStep - 1) * 25;
+            document.getElementById('progressBar').style.width = progress + '%';
+        }
+
+        function updateStepStatus(step, status) {
+            const indicator = document.getElementById(`step${step}Status`);
+            indicator.className = `status-indicator status-${status}`;
+            
+            if (status === 'success' && step === currentStep) {
+                currentStep++;
+                updateProgress();
+                enableNextStep();
+            }
+        }
+
+        function enableNextStep() {
+            if (currentStep === 2) {
+                // Authorization step - will be completed by callback
+            } else if (currentStep === 3) {
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('checkBtn').disabled = false;
+            } else if (currentStep === 4) {
+                // Monitoring step is always available
+            }
+        }
+
+        async function getAuthUrl() {
+            try {
+                document.getElementById('authBtn').disabled = true;
+                document.getElementById('authBtn').textContent = 'Getting URL...';
+
+                const response = await fetch('/api/gmail/auth');
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Authorization URL Generated!</strong>
+                            
+                            <div class="auth-url">
+                                <strong>Click here to authorize:</strong><br>
+                                <a href="${result.authUrl}" target="_blank" style="color: #4A90E2; text-decoration: none;">
+                                    ${result.authUrl}
+                                </a>
+                            </div>
+                            
+                            <p><strong>Instructions:</strong></p>
+                            <ol>
+                                <li>Click the link above (opens in new tab)</li>
+                                <li>Sign in to your Gmail account</li>
+                                <li>Grant the requested permissions</li>
+                                <li>You'll be redirected back automatically</li>
+                            </ol>
+                        </div>
+                    `;
+                    updateStepStatus(1, 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to get authorization URL');
+                }
+            } catch (error) {
+                document.getElementById('authResult').innerHTML = `
+                    <div class="result error">❌ Error: ${error.message}</div>
+                `;
+                updateStepStatus(1, 'error');
+            } finally {
+                document.getElementById('authBtn').disabled = false;
+                document.getElementById('authBtn').textContent = 'Get Authorization URL';
+            }
+        }
+
+        async function startPolling() {
+            try {
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('startBtn').textContent = 'Starting...';
+
+                const intervalMinutes = document.getElementById('pollingInterval').value;
+                
+                const response = await fetch('/api/gmail/start-polling', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ intervalMinutes: parseInt(intervalMinutes) })
+                });
+                
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('pollingResult').innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Gmail Polling Started!</strong>
+                            
+                            <div class="polling-status">
+                                <strong>📧 Polling Active</strong><br>
+                                Checking Gmail every ${intervalMinutes} minutes for new replies
+                            </div>
+                            
+                            <p><strong>What happens now:</strong></p>
+                            <ul>
+                                <li>🔄 System automatically checks Gmail every ${intervalMinutes} minutes</li>
+                                <li>📧 When employees reply to task emails, status updates automatically</li>
+                                <li>💾 All replies are logged in your database</li>
+                                <li>⚡ Keywords like "completed" trigger status changes</li>
+                            </ul>
+                            
+                            <pre>${JSON.stringify(result.status, null, 2)}</pre>
+                        </div>
+                    `;
+                    updateStepStatus(3, 'success');
+                    pollingActive = true;
+                    document.getElementById('stopBtn').disabled = false;
+                } else {
+                    throw new Error(result.error || 'Failed to start polling');
+                }
+            } catch (error) {
+                document.getElementById('pollingResult').innerHTML = `
+                    <div class="result error">❌ Error: ${error.message}</div>
+                `;
+                updateStepStatus(3, 'error');
+            } finally {
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('startBtn').textContent = 'Start Polling';
+            }
+        }
+
+        async function stopPolling() {
+            try {
+                const response = await fetch('/api/gmail/stop-polling', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('pollingResult').innerHTML = `
+                        <div class="result info">
+                            <strong>⏹️ Gmail Polling Stopped</strong>
+                            <p>Polling has been stopped. You can restart it anytime.</p>
+                        </div>
+                    `;
+                    pollingActive = false;
+                    document.getElementById('stopBtn').disabled = true;
+                    document.getElementById('startBtn').disabled = false;
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                alert('Error stopping polling: ' + error.message);
+            }
+        }
+
+        async function checkNow() {
+            try {
+                document.getElementById('checkBtn').disabled = true;
+                document.getElementById('checkBtn').textContent = 'Checking...';
+
+                const response = await fetch('/api/gmail/check-now', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('pollingResult').innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Manual Email Check Completed</strong>
+                            <p>Checked at: ${result.timestamp}</p>
+                            <p>Any new replies have been processed and database updated.</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                document.getElementById('pollingResult').innerHTML = `
+                    <div class="result error">❌ Check Error: ${error.message}</div>
+                `;
+            } finally {
+                document.getElementById('checkBtn').disabled = false;
+                document.getElementById('checkBtn').textContent = 'Check Now';
+            }
+        }
+
+        async function getPollingStatus() {
+            try {
+                const response = await fetch('/api/gmail/polling-status');
+                const result = await response.json();
+
+                if (result.success) {
+                    const statusClass = result.status.isPolling ? 'polling-status' : 'polling-status inactive';
+                    const statusText = result.status.isPolling ? 'Active' : 'Inactive';
+                    const statusIcon = result.status.isPolling ? '🟢' : '🟡';
+
+                    document.getElementById('monitorResult').innerHTML = `
+                        <div class="result info">
+                            <strong>📊 Polling Status</strong>
+                            
+                            <div class="${statusClass}">
+                                ${statusIcon} <strong>Status: ${statusText}</strong><br>
+                                Gmail Initialized: ${result.status.gmailInitialized ? '✅' : '❌'}<br>
+                                Last Check: ${result.status.lastCheck}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                document.getElementById('monitorResult').innerHTML = `
+                    <div class="result error">❌ Status Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function getRecentUpdates() {
+            try {
+                const response = await fetch('/api/gmail/recent-updates');
+                const result = await response.json();
+
+                if (result.success) {
+                    let updatesHtml = `
+                        <div class="result success">
+                            <strong>📧 Recent Email Updates (${result.count} found)</strong>
+                            
+                            <div class="updates-list">
+                    `;
+
+                    if (result.updates.length === 0) {
+                        updatesHtml += '<p>No email replies received yet.</p>';
+                    } else {
+                        result.updates.forEach(update => {
+                            const replyDate = new Date(update.last_reply_at).toLocaleString();
+                            updatesHtml += `
+                                <div class="update-item">
+                                    <strong>${update.task_description}</strong><br>
+                                    <small>Employee: ${update.employees.name} (${update.employees.email})</small><br>
+                                    <small>Status: ${update.status}</small><br>
+                                    <small>Reply: ${replyDate}</small><br>
+                                    <em>${update.last_reply_content ? update.last_reply_content.substring(0, 100) + '...' : 'No content'}</em>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    updatesHtml += `
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('monitorResult').innerHTML = updatesHtml;
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                document.getElementById('monitorResult').innerHTML = `
+                    <div class="result error">❌ Updates Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function testWithExistingTasks() {
+            try {
+                const response = await fetch('/api/debug/get-tasks-with-emails');
+                const result = await response.json();
+
+                document.getElementById('monitorResult').innerHTML = `
+                    <div class="result info">
+                        <strong>📋 Tasks with Email Tracking (${result.count} found)</strong>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('monitorResult').innerHTML = `
+                    <div class="result error">❌ Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        function resetSetup() {
+            if (confirm('Are you sure you want to reset the setup? This will stop polling and require re-authorization.')) {
+                stopPolling();
+                currentStep = 1;
+                isAuthorized = false;
+                pollingActive = false;
+                updateProgress();
+                
+                // Reset all status indicators
+                for (let i = 1; i <= 4; i++) {
+                    updateStepStatus(i, 'pending');
+                }
+                
+                // Reset button states
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('checkBtn').disabled = true;
+                
+                // Clear results
+                document.getElementById('authResult').innerHTML = '';
+                document.getElementById('pollingResult').innerHTML = '';
+                document.getElementById('monitorResult').innerHTML = '';
+                
+                alert('Setup reset. Please start from Step 1.');
+            }
+        }
+
+        // Auto-refresh status every 30 seconds if polling is active
+        setInterval(() => {
+            if (pollingActive) {
+                getPollingStatus();
+            }
+        }, 30000);
+
+        // Check if user is coming back from authorization
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('authorized') === 'true') {
+                updateStepStatus(2, 'success');
+                isAuthorized = true;
+                alert('✅ Gmail authorization successful! You can now start polling.');
+            }
+            updateProgress();
+            
+            // Check initial status
+            getPollingStatus();
+        };
+    </script>
+</body>
+</html>

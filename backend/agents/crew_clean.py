@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from crewai import Agent, Task, Crew, LLM
-from crewai_tools import tool
+from crewai.tools import tool
 from supabase import create_client
 from pydantic import BaseModel
 from typing import List, Optional
@@ -108,7 +108,6 @@ INSTRUCTIONS:
 2. Create a concise meeting summary
 3. Extract action items and assign them to specific employees using their exact email addresses from the database
 4. Set realistic deadlines based on the meeting context
-5. Create individual email notifications for employees with tasks
 
 Return a JSON object with this structure:
 {{
@@ -119,14 +118,6 @@ Return a JSON object with this structure:
             "employee_email": "employee@company.com",
             "task": "Specific task description",
             "deadline": "2025-MM-DD" or null
-        }}
-    ],
-    "emails": [
-        {{
-            "employee_name": "Employee Name",
-            "employee_email": "employee@company.com",
-            "subject": "Task Assignment: [Task Name]",
-            "body": "Email body with task details..."
         }}
     ]
 }}
@@ -189,7 +180,6 @@ def save_tasks_to_database(action_items: List[dict], meeting_id: str, company_id
             return []
         
         tasks_to_insert = []
-        saved_tasks = []
         
         for item in action_items:
             # Look up employee by email
@@ -198,46 +188,28 @@ def save_tasks_to_database(action_items: List[dict], meeting_id: str, company_id
             
             if item.get('employee_email'):
                 try:
-                    # First try to find the employee
-                    emp_response = supabase.from_("employees").select("id, name").eq("email", item['employee_email']).eq("company_id", company_id).execute()
-                    if emp_response.data and len(emp_response.data) > 0:
-                        employee_id = emp_response.data[0]['id']
-                        assigned_to = emp_response.data[0]['name']
+                    emp_response = supabase.from_("employees").select("id, name").eq("email", item['employee_email']).eq("company_id", company_id).single()
+                    if emp_response.data:
+                        employee_id = emp_response.data['id']
+                        assigned_to = emp_response.data['name']
                         logger.info(f"✅ Found employee: {assigned_to} ({employee_id})")
-                    else:
-                        # Create the employee if not found
-                        logger.info(f"⚠️ No employee found for {item.get('employee_email')}, creating new employee")
-                        new_employee = {
-                            "email": item['employee_email'],
-                            "name": item.get('employee_name', item['employee_email'].split('@')[0]),
-                            "company_id": company_id
-                        }
-                        create_response = supabase.from_("employees").insert(new_employee).execute()
-                        if create_response.data and len(create_response.data) > 0:
-                            employee_id = create_response.data[0]['id']
-                            assigned_to = create_response.data[0]['name']
-                            logger.info(f"✅ Created new employee: {assigned_to} ({employee_id})")
-                        else:
-                            logger.error(f"❌ Failed to create employee for {item.get('employee_email')}")
                 except Exception as e:
-                    logger.warning(f"❌ Employee lookup/create failed for {item.get('employee_email')}: {e}")
+                    logger.warning(f"❌ Employee lookup failed for {item.get('employee_email')}: {e}")
             
-            # Prepare task data for database insert
+            # Prepare task data
             task_data = {
                 "meeting_id": meeting_id,
                 "employee_id": employee_id,
                 "task_description": item.get('task', ''),
                 "due_date": item.get('deadline'),
                 "status": "pending",
-                "company_id": company_id
+                "company_id": company_id,
+                # Add these for the API response mapping
+                "title": item.get('task', '')[:50] + ("..." if len(item.get('task', '')) > 50 else ""),
+                "assigned_to": assigned_to
             }
             
-            # Keep assigned_to for response but don't insert it
-            task_data_with_assigned = task_data.copy()
-            task_data_with_assigned["assigned_to"] = assigned_to
-            
             tasks_to_insert.append(task_data)
-            saved_tasks.append(task_data_with_assigned)
         
         # Insert tasks
         if tasks_to_insert:
@@ -246,12 +218,12 @@ def save_tasks_to_database(action_items: List[dict], meeting_id: str, company_id
             
             if response.data:
                 logger.info(f"✅ Successfully created {len(response.data)} tasks")
-                return saved_tasks  # Return our enhanced data with assigned_to
+                return response.data
             else:
                 logger.error(f"❌ Failed to insert tasks: {response}")
                 return []
         
-        return saved_tasks
+        return []
         
     except Exception as e:
         logger.error(f"❌ Error saving tasks: {e}")
@@ -288,12 +260,6 @@ def process_transcript():
         meeting_id = None
         if meta.get('meeting_id'):
             meeting_id = meta['meeting_id']
-            # Update existing meeting with summary
-            try:
-                supabase.from_("meetings").update({"summary": result.get('summary')}).eq("id", meeting_id).execute()
-                logger.info(f"✅ Updated meeting summary: {meeting_id}")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to update meeting summary: {e}")
         else:
             # Create meeting record
             meeting_data = {
@@ -322,7 +288,7 @@ def process_transcript():
             },
             "action_items": result.get('action_items', []),
             "saved_tasks": saved_tasks,
-            "emails": result.get('emails', []),  # Include emails from agent response
+            "emails": [],  # Email functionality can be added later
             "success": True
         })
         

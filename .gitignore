@@ -40,3 +40,6 @@ Thumbs.db
 # Project
 backend/uploads/
 backend/transcribe_debug.log
+
+# Deployment files with sensitive info
+DEPLOYMENT.md

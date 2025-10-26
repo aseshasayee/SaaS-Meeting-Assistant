@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Reply Testing - SaaS Project</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .secondary {
+            background-color: #6c757d;
+        }
+        .secondary:hover {
+            background-color: #5a6268;
+        }
+        .success {
+            background-color: #28a745;
+        }
+        .success:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .quick-reply {
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Email Reply Testing Interface</h1>
+        <p>Test the email reply tracking system for task status updates.</p>
+
+        <!-- Get Tasks Section -->
+        <div class="section">
+            <h3>📋 Step 1: Get Recent Tasks</h3>
+            <p>First, let's get some tasks that have email message IDs (emails sent):</p>
+            <button onclick="getTasks()">Get Recent Tasks</button>
+            <div id="tasksResult"></div>
+        </div>
+
+        <!-- Simulate Reply Section -->
+        <div class="section">
+            <h3>✉️ Step 2: Simulate Email Reply</h3>
+            <div class="form-group">
+                <label for="taskId">Task ID:</label>
+                <input type="text" id="taskId" placeholder="Enter task ID from above results">
+            </div>
+            
+            <div class="form-group">
+                <label for="fromEmail">From Email:</label>
+                <input type="email" id="fromEmail" value="test.employee@company.com" placeholder="Employee email">
+            </div>
+            
+            <div class="form-group">
+                <label for="replyContent">Reply Content:</label>
+                <textarea id="replyContent" placeholder="Enter reply content...">This task is completed. All requirements have been fulfilled.</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Quick Reply Options:</label>
+                <div class="status-buttons">
+                    <button class="success quick-reply" onclick="setReply('completed')">✅ Completed</button>
+                    <button class="secondary quick-reply" onclick="setReply('in progress')">🔄 In Progress</button>
+                    <button class="secondary quick-reply" onclick="setReply('blocked')">🚫 Blocked</button>
+                    <button class="secondary quick-reply" onclick="setReply('I need more information about this task')">❓ Need Info</button>
+                </div>
+            </div>
+
+            <button onclick="simulateReply()">Send Simulated Reply</button>
+            <div id="replyResult"></div>
+        </div>
+
+        <!-- Manual Reply Test Section -->
+        <div class="section">
+            <h3>🔧 Step 3: Manual Reply Test</h3>
+            <p>Test the raw email reply endpoint directly:</p>
+            
+            <div class="form-group">
+                <label for="messageId">In-Reply-To Message ID:</label>
+                <input type="text" id="messageId" placeholder="Enter the original email message ID">
+            </div>
+            
+            <div class="form-group">
+                <label for="manualReply">Reply Body:</label>
+                <textarea id="manualReply">Task completed successfully!</textarea>
+            </div>
+            
+            <button onclick="sendManualReply()">Send Manual Reply</button>
+            <div id="manualResult"></div>
+        </div>
+    </div>
+
+    <script>
+        async function getTasks() {
+            try {
+                const response = await fetch('/api/debug/get-tasks-with-emails');
+                const result = await response.json();
+                
+                const resultDiv = document.getElementById('tasksResult');
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="result success">${JSON.stringify(result, null, 2)}</div>`;
+                    
+                    // Auto-populate first task ID if available
+                    if (result.tasks && result.tasks.length > 0) {
+                        document.getElementById('taskId').value = result.tasks[0].id;
+                        if (result.tasks[0].email_message_id) {
+                            document.getElementById('messageId').value = result.tasks[0].email_message_id;
+                        }
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">${JSON.stringify(result, null, 2)}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('tasksResult').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function setReply(status) {
+            const replyTexts = {
+                'completed': 'This task is completed. All requirements have been fulfilled.',
+                'in progress': 'I am currently working on this task. Will update when finished.',
+                'blocked': 'I am blocked on this task and need assistance to proceed.',
+                'I need more information about this task': 'I need more information about this task to proceed properly.'
+            };
+            document.getElementById('replyContent').value = replyTexts[status] || status;
+        }
+
+        async function simulateReply() {
+            const taskId = document.getElementById('taskId').value;
+            const fromEmail = document.getElementById('fromEmail').value;
+            const replyContent = document.getElementById('replyContent').value;
+
+            if (!taskId) {
+                alert('Please enter a task ID');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/test/email-reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        taskId: taskId,
+                        replyContent: replyContent,
+                        fromEmail: fromEmail
+                    })
+                });
+
+                const result = await response.json();
+                const resultDiv = document.getElementById('replyResult');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="result success">${JSON.stringify(result, null, 2)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">${JSON.stringify(result, null, 2)}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('replyResult').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function sendManualReply() {
+            const messageId = document.getElementById('messageId').value;
+            const body = document.getElementById('manualReply').value;
+
+            if (!messageId) {
+                alert('Please enter a message ID');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/email/reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        messageId: 'manual-test-' + Date.now() + '@test.com',
+                        inReplyTo: messageId,
+                        from: 'test.employee@company.com',
+                        subject: 'Re: Task Assignment',
+                        body: body,
+                        headers: {
+                            'message-id': 'manual-test-' + Date.now() + '@test.com',
+                            'in-reply-to': messageId
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                const resultDiv = document.getElementById('manualResult');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="result success">${JSON.stringify(result, null, 2)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">${JSON.stringify(result, null, 2)}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('manualResult').innerHTML = `<div class="result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-load tasks on page load
+        window.onload = function() {
+            getTasks();
+        };
+    </script>
+</body>
+</html>
