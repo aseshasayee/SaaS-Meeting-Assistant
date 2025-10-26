@@ -32,7 +32,13 @@ const mailTransporter = nodemailer.createTransport({
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:3000',
+    'https://saa-s-meeting-assistant.vercel.app',
+    /\.vercel\.app$/,
+    /\.onrender\.com$/
+  ],
   credentials: true
 }));
 app.use(express.json());
